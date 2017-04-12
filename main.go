@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"strings"
 
 	cabocha "github.com/ledyba/go-cabocha"
 	mecab "github.com/yukihir0/mecab-go"
@@ -59,7 +60,7 @@ func Trim(s string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var ret string
+	var ret = []string{}
 	if err != nil {
 		return "", err
 	}
@@ -68,19 +69,21 @@ func Trim(s string) (string, error) {
 			nodes = nodes[:i]
 		} else {
 			for _, node := range nodes {
-				ret += node.Surface
+				ret = append(ret, node.Surface)
 			}
 
 			if nodes[i].Pos1 == "形容動詞語幹" {
-				ret += "な"
+				ret = append(ret, "な")
 			} else if nodes[i].Pos1 == "一般" {
-				ret += "の"
+				ret = append(ret, "の")
+			} else if nodes[i].Pos == "形容詞" {
+				ret[len(ret)-1] = nodes[i].Base
 			}
 			break
 		}
 	}
 
-	return ret, nil
+	return strings.Join(ret, ""), nil
 }
 
 func main() {
