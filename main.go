@@ -163,10 +163,7 @@ func main() {
 	cw, _, _ := ExtractCharacteristicWords(s)
 	np, _ := CalcNP(*input)
 
-	if np == 0 {
-		fmt.Println("わかんないやー")
-		return
-	} else if 1 <= np && cw != "" {
+	if 0 <= np && cw != "" {
 		fmt.Println(PosiCon(cw))
 		return
 	} else if 1 <= np {
