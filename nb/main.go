@@ -9,12 +9,14 @@ import (
 	mecab "github.com/yukihir0/mecab-go"
 )
 
+// classの定義
 const (
-	P        bayesian.Class = "Posi"
-	N        bayesian.Class = "Nega"
-	I        bayesian.Class = "Illegal"
-	fileBase                = "nb.dat"
+	P bayesian.Class = "Posi"
+	N bayesian.Class = "Nega"
+	I bayesian.Class = "Illegal"
 )
+
+const fileBase = "nb.dat"
 
 var input = flag.String("i", "", "")
 

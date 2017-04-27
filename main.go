@@ -29,7 +29,8 @@ import (
 )
 
 var (
-	input = flag.String("i", "", "")
+	input = flag.String("i", "", "input string")
+	mode  = flag.String("m", "", "mode: bays")
 )
 
 type NPElem struct {
