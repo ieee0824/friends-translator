@@ -1,36 +1,22 @@
 package main
 
-//import (
-//	"fmt"
-//	"io/ioutil"
-//
-//	"github.com/JesusIslam/tldr"
-//)
-//
-//func main() {
-//	intoSentences := 3
-//	textB, _ := ioutil.ReadFile("./sample.txt")
-//	text := string(textB)
-//	bag := tldr.New()
-//	result, _ := bag.Summarize(text, intoSentences)
-//	fmt.Println(result)
-//}
-
 import (
 	"bufio"
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
+	"github.com/jbrukh/bayesian"
 	cabocha "github.com/ledyba/go-cabocha"
 	mecab "github.com/yukihir0/mecab-go"
 )
 
 var (
 	input = flag.String("i", "", "input string")
-	mode  = flag.String("m", "", "mode: bays")
+	mode  = flag.Bool("m", false, "if use bayesian: true")
 )
 
 type NPElem struct {
@@ -39,6 +25,96 @@ type NPElem struct {
 }
 
 var index = map[string][]NPElem{}
+
+// classの定義
+const (
+	P bayesian.Class = "Posi"
+	N bayesian.Class = "Nega"
+	I bayesian.Class = "Illegal"
+)
+
+const fileBase = "nb.dat"
+
+type classifier struct {
+	PN *bayesian.Classifier
+	NI *bayesian.Classifier
+	IP *bayesian.Classifier
+}
+
+func (c *classifier) DeliberationNP(s string) bayesian.Class {
+	var doc = []string{}
+	var (
+		PScore = float64(1.0)
+		NScore = float64(1.0)
+		IScore = float64(1.0)
+	)
+	nodes, err := mecab.Parse(s)
+	if err != nil {
+		return ""
+	}
+
+	for _, node := range nodes {
+		doc = append(doc, node.Base)
+	}
+
+	pnScores, _, pnb := c.PN.LogScores(doc)
+	if pnb {
+		PScore = PScore * (-1 * pnScores[0])
+		NScore = NScore * (-1 * pnScores[1])
+	}
+	niScores, _, nib := c.NI.LogScores(doc)
+	if nib {
+		NScore = NScore * (-1 * niScores[0])
+		IScore = IScore * (-1 * niScores[1])
+	}
+	ipScores, _, ipb := c.IP.LogScores(doc)
+	if ipb {
+		IScore = IScore * (-1 * ipScores[0])
+		PScore = PScore * (-1 * ipScores[1])
+	}
+
+	if PScore < NScore {
+		if PScore < IScore {
+			return P
+		}
+	} else {
+		if NScore < IScore {
+			return N
+		}
+	}
+	return I
+}
+
+func newClassifier() *classifier {
+	return &classifier{
+		bayesian.NewClassifier(P, N),
+		bayesian.NewClassifier(N, I),
+		bayesian.NewClassifier(I, P),
+	}
+}
+
+func load() *classifier {
+	PN, err := bayesian.NewClassifierFromFile("pn_" + fileBase)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
+	NI, err := bayesian.NewClassifierFromFile("ni_" + fileBase)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
+	IP, err := bayesian.NewClassifierFromFile("ip_" + fileBase)
+	if err != nil {
+		log.Println(err)
+		return nil
+	}
+	return &classifier{
+		PN,
+		NI,
+		IP,
+	}
+}
 
 func init() {
 	flag.Parse()
@@ -162,14 +238,32 @@ func CalcNP(s string) (int, error) {
 func main() {
 	s, _ := TrimSubject(*input)
 	cw, _, _ := ExtractCharacteristicWords(s)
-	np, _ := CalcNP(*input)
 
-	if 0 <= np && cw != "" {
-		fmt.Println(PosiCon(cw))
-		return
-	} else if 1 <= np {
-		fmt.Println("わたしにはよくわからないけどすごいんだよー")
+	if !*mode {
+		np, _ := CalcNP(*input)
+
+		if 0 <= np && cw != "" {
+			fmt.Println(PosiCon(cw))
+			return
+		} else if 1 <= np {
+			fmt.Println("わたしにはよくわからないけどすごいんだよー")
+			return
+		}
+		fmt.Println(NegaCon(cw))
 		return
 	}
-	fmt.Println(NegaCon(cw))
+	c := load()
+	if c == nil {
+		return
+	}
+
+	result := c.DeliberationNP(*input)
+
+	if result == "Posi" {
+		fmt.Println(PosiCon(cw))
+	} else if result == "Nega" {
+		fmt.Println(NegaCon(cw))
+	} else {
+		fmt.Println("わたしにはよくわからないけどすごいんだよー")
+	}
 }
